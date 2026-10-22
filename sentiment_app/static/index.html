@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI-Based Sentiment Analysis of Customer Reviews</title>
+  <style>
+    :root {
+      --bg: #f3f5fa;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #4f46e5;
+      --pos: #16a34a;
+      --neg: #dc2626;
+      --neu: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #fff;
+      padding: 28px 16px;
+      text-align: center;
+    }
+    header h1 { margin: 0 0 6px; font-size: 1.6rem; }
+    header p  { margin: 0; opacity: .9; font-size: .95rem; }
+
+    main { max-width: 820px; margin: 24px auto; padding: 0 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px;
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      resize: vertical;
+    }
+    textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+    .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+    }
+    .primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .primary:hover { filter: brightness(1.1); }
+    .primary:disabled { opacity: .6; cursor: not-allowed; }
+    .ghost { background: #eef0ff; color: var(--primary); }
+    .chip {
+      background: #f3f4f6; color: var(--text);
+      font-size: .85rem; padding: 6px 12px; border-radius: 999px;
+    }
+    .chip:hover { background: #e5e7eb; }
+    .label { color: var(--muted); font-size: .85rem; }
+
+    /* Result */
+    #result { display: none; }
+    .badge {
+      display: inline-block; padding: 6px 16px; border-radius: 999px;
+      color: #fff; font-weight: 700; font-size: 1.05rem;
+    }
+    .Positive { background: var(--pos); }
+    .Negative { background: var(--neg); }
+    .Neutral  { background: var(--neu); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+    .stat { background: #f9fafb; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .stat b { display: block; font-size: 1.3rem; }
+
+    .meter { position: relative; height: 12px; border-radius: 999px; margin-top: 18px;
+             background: linear-gradient(90deg, var(--neg), #e5e7eb 50%, var(--pos)); }
+    .meter .dot { position: absolute; top: -4px; width: 20px; height: 20px; border-radius: 50%;
+                  background: #fff; border: 3px solid var(--primary); transform: translateX(-50%);
+                  transition: left .4s ease; }
+    .scale { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin-top: 6px; }
+
+    .error { color: var(--neg); margin-top: 10px; display: none; }
+
+    /* History table */
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    td.rev { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tag { padding: 2px 10px; border-radius: 999px; color: #fff; font-size: .8rem; }
+
+    footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 10px 0 30px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI-Based Sentiment Analysis of Customer Reviews</h1>
+    <p>Python &bull; TextBlob &bull; NLP &mdash; classifies reviews as Positive, Negative or Neutral</p>
+  </header>
+
+  <main>
+    <!-- INPUT -->
+    <section class="card">
+      <h2>Enter a Customer Review</h2>
+      <textarea id="review" placeholder="e.g. The product quality is excellent and delivery was fast!"></textarea>
+
+      <div class="row">
+        <button class="primary" id="analyzeBtn">Analyze Sentiment</button>
+        <button class="ghost" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="row">
+        <span class="label">Try a sample:</span>
+        <button class="chip" data-s="The product quality is excellent and I am very happy with it.">Positive</button>
+        <button class="chip" data-s="Terrible service. The item arrived broken and support was awful.">Negative</button>
+        <button class="chip" data-s="The parcel was delivered on Tuesday.">Neutral</button>
+      </div>
+      <div class="error" id="error"></div>
+    </section>
+
+    <!-- RESULT -->
+    <section class="card" id="result">
+      <h2>Sentiment Analysis Result</h2>
+      <span class="badge" id="badge"></span>
+
+      <div class="grid">
+        <div class="stat"><span class="label">Polarity Score</span><b id="polarity"></b></div>
+        <div class="stat"><span class="label">Subjectivity</span><b id="subjectivity"></b></div>
+        <div class="stat"><span class="label">Words Analysed</span><b id="wordCount"></b></div>
+      </div>
+
+      <div class="meter"><div class="dot" id="dot"></div></div>
+      <div class="scale"><span>-1 Negative</span><span>0 Neutral</span><span>+1 Positive</span></div>
+
+      <p class="label" style="margin-top:16px">Cleaned review: <i id="cleaned"></i></p>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="card" id="historyCard" style="display:none">
+      <h2>Analysis History (this session)</h2>
+      <table>
+        <thead><tr><th>#</th><th>Review</th><th>Polarity</th><th>Sentiment</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </section>
+  </main>
+
+  
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let count = 0;
+
+    // Sample buttons
+    document.querySelectorAll(".chip").forEach((b) =>
+      b.addEventListener("click", () => { $("review").value = b.dataset.s; analyze(); })
+    );
+
+    $("analyzeBtn").addEventListener("click", analyze);
+    $("clearBtn").addEventListener("click", () => {
+      $("review").value = "";
+      $("result").style.display = "none";
+      $("error").style.display = "none";
+    });
+    // Ctrl + Enter to submit
+    $("review").addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "Enter") analyze();
+    });
+
+    async function analyze() {
+      const review = $("review").value.trim();
+      $("error").style.display = "none";
+
+      if (!review) return showError("Please enter a customer review.");
+
+      $("analyzeBtn").disabled = true;
+      $("analyzeBtn").textContent = "Analyzing...";
+
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ review }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Something went wrong.");
+        showResult(data);
+        addHistory(data);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        $("analyzeBtn").disabled = false;
+        $("analyzeBtn").textContent = "Analyze Sentiment";
+      }
+    }
+
+    function showResult(d) {
+      $("badge").textContent = d.sentiment;
+      $("badge").className = "badge " + d.sentiment;
+      $("polarity").textContent = d.polarity.toFixed(2);
+      $("subjectivity").textContent = d.subjectivity.toFixed(2);
+      $("wordCount").textContent = d.words.length;
+      $("cleaned").textContent = d.cleaned_review;
+      $("dot").style.left = ((d.polarity + 1) / 2) * 100 + "%";
+      $("result").style.display = "block";
+    }
+
+    function addHistory(d) {
+      count++;
+      $("historyCard").style.display = "block";
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td>${count}</td><td class="rev"></td><td>${d.polarity.toFixed(2)}</td>` +
+        `<td><span class="tag ${d.sentiment}">${d.sentiment}</span></td>`;
+      tr.querySelector(".rev").textContent = d.review;   // safe: no HTML injection
+      $("history").prepend(tr);
+    }
+
+    function showError(msg) {
+      $("error").textContent = msg;
+      $("error").style.display = "block";
+    }
+  </script>
+</body>
+</html>
